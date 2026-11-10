@@ -1,40 +1,68 @@
-
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+
+public readonly struct Attempt
+{
+    public readonly int Probability;
+    public readonly bool Won;
+    public readonly float Delta;   // reward on a win, minus the wiped score on a bust
+
+    public Attempt(int probability, bool won, float delta)
+    {
+        Probability = probability;
+        Won = won;
+        Delta = delta;
+    }
+}
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Game Settings")]
-    [SerializeField] private int maxAttempts = 20;
+    private const string PersonalBestKey = "PersonalBest";
 
-    private float currentScore;
-    private int attemptsRemaining;
-    private float personalBest;
-    private bool isRunActive;
+    [SerializeField] private int maxAttempts = 10;
+    [Tooltip("Off when the main menu starts the first run.")]
+    [SerializeField] private bool startRunOnLoad;
 
-    public float CurrentScore => currentScore;
-    public int AttemptsRemaining => attemptsRemaining;
-    public float PersonalBest => personalBest;
-    public bool IsRunActive => isRunActive;
+    private readonly List<Attempt> attempts = new();
+
+    public IReadOnlyList<Attempt> Attempts => attempts;
+
+    public float CurrentScore { get; private set; }
+    public int Streak { get; private set; }
+    public int AttemptsRemaining { get; private set; }
+    public float PersonalBest { get; private set; }
+    public bool IsRunActive { get; private set; }
+    public int MaxAttempts => maxAttempts;
+    public int AttemptNumber => maxAttempts - AttemptsRemaining;
 
     public event Action OnStateChanged;
     public event Action OnRunStarted;
-    public event Action<bool, float> OnAttemptResolved;
-    public event Action OnRunEnded;
+    public event Action<float, int, int> OnSuccess;   // reward, probability, streak
+    public event Action<float, int> OnBust;           // score lost, probability
+    public event Action<float, bool> OnRunEnded;      // final score, beat personal best
 
-    private const string PersonalBestKey = "PersonalBest";
+    public static float RewardFor(int probability) => 100f / probability;
+    public static string FormatScore(float value) => value.ToString("0.##");
 
     private void Awake()
     {
-        personalBest = PlayerPrefs.GetInt(PersonalBestKey, 0);
-        StartNewRun();
+        PersonalBest = PlayerPrefs.GetFloat(PersonalBestKey, 0f);
+    }
+
+    private void Start()
+    {
+        if (startRunOnLoad)
+            StartNewRun();
     }
 
     public void StartNewRun()
     {
-        currentScore = 0;
-        attemptsRemaining = maxAttempts;
-        isRunActive = true;
+        CurrentScore = 0;
+        Streak = 0;
+        attempts.Clear();
+        AttemptsRemaining = maxAttempts;
+        IsRunActive = true;
 
         OnRunStarted?.Invoke();
         OnStateChanged?.Invoke();
@@ -42,45 +70,46 @@ public class GameManager : MonoBehaviour
 
     public void TryAttempt(int probability)
     {
-        if (!isRunActive)
+        if (!IsRunActive || probability < 1 || probability > 100)
             return;
 
-        if (probability < 1 || probability > 100)
-            return;
+        AttemptsRemaining--;
 
-        // Calculate reward
-        float reward = 100f / probability;
-
-        // Generate random number from 1 to 100
-        int roll = UnityEngine.Random.Range(1, 101);
-
-        // Check success
-        bool success = roll <= probability;
-
-        if (success)
+        if (UnityEngine.Random.Range(1, 101) <= probability)
         {
-            currentScore += reward;
+            float reward = RewardFor(probability);
+            CurrentScore += reward;
+            Streak++;
+            attempts.Add(new Attempt(probability, true, reward));
+            OnSuccess?.Invoke(reward, probability, Streak);
+        }
+        else
+        {
+            float lost = CurrentScore;
+            CurrentScore = 0;
+            Streak = 0;
+            attempts.Add(new Attempt(probability, false, -lost));
+            OnBust?.Invoke(lost, probability);
         }
 
-        attemptsRemaining--;
+        if (AttemptsRemaining <= 0)
+            EndRun();
 
-        OnAttemptResolved?.Invoke(success, success ? reward : 0);
+        OnStateChanged?.Invoke();
+    }
 
-        // Update personal best
-        if (currentScore > personalBest)
+    private void EndRun()
+    {
+        IsRunActive = false;
+
+        bool beatBest = CurrentScore > PersonalBest;
+        if (beatBest)
         {
-            personalBest = currentScore;
-            PlayerPrefs.SetFloat(PersonalBestKey, personalBest);
+            PersonalBest = CurrentScore;
+            PlayerPrefs.SetFloat(PersonalBestKey, PersonalBest);
             PlayerPrefs.Save();
         }
 
-        // Check if run has ended
-        if (attemptsRemaining <= 0)
-        {
-            isRunActive = false;
-            OnRunEnded?.Invoke();
-        }
-
-        OnStateChanged?.Invoke();
+        OnRunEnded?.Invoke(CurrentScore, beatBest);
     }
 }

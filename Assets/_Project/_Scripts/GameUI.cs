@@ -1,126 +1,223 @@
-
-using System.Collections.Generic;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class GameUI : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private GameManager gameManager;
-    [SerializeField] private ProbabilityController probabilityController;
+    [SerializeField] private Juice juice;
+    [SerializeField] private SfxPlayer sfx;
+    [SerializeField] private Palette palette;
 
-    [Header("UI Elements")]
-    [SerializeField] private Slider probabilitySlider;
-    [SerializeField] private TMP_Text scoreText;
-    [SerializeField] private TMP_Text probabilityText;
-    [SerializeField] private TMP_Text attemptsText;
-    [SerializeField] private TMP_Text rewardText;
+    [Header("Score")]
+    [SerializeField] private ScoreCounter score;
+    [SerializeField] private TMP_Text streakText;
     [SerializeField] private TMP_Text resultText;
-    [SerializeField] private TMP_Text recentResultsText;
     [SerializeField] private TMP_Text personalBestText;
 
-    [Header("Buttons")]
+    [Header("Odds picker")]
+    [SerializeField] private Slider probabilitySlider;
+    [SerializeField] private Image sliderFill;
+    [SerializeField] private TMP_Text probabilityText;
+    [SerializeField] private TMP_Text rewardText;
     [SerializeField] private Button clickButton;
-    [SerializeField] private Button playAgainButton;
+    [SerializeField] private float clickCooldown = 0.15f;
 
-    private readonly List<string> recentResults = new();
+    [Header("Attempts")]
+    [SerializeField] private TMP_Text attemptsText;
+    [SerializeField] private AttemptPips pips;
 
-    private void Start()
+    [Header("Win feedback")]
+    [SerializeField] private HitFeedback safeWin = new()
+    {
+        label = "NICE", labelPop = 0.3f,
+        flashAlpha = 0.25f, flashDuration = 0.3f, shake = 3f, shakeDuration = 0.15f,
+        bloom = 1.5f, chromaticAberration = 0.2f, lensDistortion = -0.08f, postDuration = 0.3f,
+        scorePop = 0.3f, particles = 8, particleSpeed = 220f, popupRise = 40f
+    };
+    [SerializeField] private HitFeedback riskyWin = new()
+    {
+        label = "LUCKY!", labelPop = 0.45f,
+        flashAlpha = 0.45f, flashDuration = 0.4f, shake = 7f, shakeDuration = 0.3f,
+        bloom = 3f, chromaticAberration = 0.5f, lensDistortion = -0.18f, postDuration = 0.5f,
+        scorePop = 0.45f, particles = 20, particleSpeed = 300f, popupRise = 40f
+    };
+    [SerializeField] private HitFeedback longShotWin = new()
+    {
+        label = "JACKPOT!", labelPop = 0.6f,
+        flashAlpha = 0.65f, flashDuration = 0.6f, shake = 14f, shakeDuration = 0.5f, hitStop = 0.12f,
+        bloom = 6f, chromaticAberration = 1f, lensDistortion = -0.35f, postDuration = 0.8f,
+        scorePop = 0.7f, particles = 45, particleSpeed = 380f, popupRise = 60f
+    };
+
+    private float lastClickTime = -10f;
+    private OddsTier? currentTier;
+
+    private void Awake()
+    {
+        probabilitySlider.wholeNumbers = true;
+        probabilitySlider.minValue = 1;
+        probabilitySlider.maxValue = 99;
+        probabilitySlider.onValueChanged.AddListener(OnProbabilityChanged);
+        clickButton.onClick.AddListener(OnClickButton);
+    }
+
+    private void OnEnable()
     {
         gameManager.OnStateChanged += UpdateUI;
         gameManager.OnRunStarted += HandleRunStarted;
-        gameManager.OnAttemptResolved += HandleAttemptResolved;
+        gameManager.OnSuccess += HandleSuccess;
+        gameManager.OnBust += HandleBust;
         gameManager.OnRunEnded += HandleRunEnded;
-
-        probabilitySlider.onValueChanged.AddListener(OnProbabilityChanged);
-        clickButton.onClick.AddListener(OnClickButton);
-        playAgainButton.onClick.AddListener(OnPlayAgainButton);
-
-        playAgainButton.gameObject.SetActive(false);
-
-        UpdateUI();
-        OnProbabilityChanged(probabilitySlider.value);
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        if (gameManager == null)
-            return;
-
         gameManager.OnStateChanged -= UpdateUI;
         gameManager.OnRunStarted -= HandleRunStarted;
-        gameManager.OnAttemptResolved -= HandleAttemptResolved;
+        gameManager.OnSuccess -= HandleSuccess;
+        gameManager.OnBust -= HandleBust;
         gameManager.OnRunEnded -= HandleRunEnded;
     }
 
+    private void Start()
+    {
+        OnProbabilityChanged(probabilitySlider.value);
+        UpdateUI();
+    }
+
+    private void Update()
+    {
+        if (gameManager.IsRunActive && SpacePressed())
+            OnClickButton();
+    }
+
+    private static bool SpacePressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.Space);
+#endif
+    }
+
+    private int SelectedProbability => Mathf.RoundToInt(probabilitySlider.value);
+
+    private static float Risk(int probability) => 1f - Mathf.InverseLerp(1, 99, probability);
+
     private void UpdateUI()
     {
-        scoreText.text = gameManager.CurrentScore.ToString();
-        attemptsText.text = $"Attempts: {gameManager.AttemptsRemaining}";
-        personalBestText.text = $"Personal Best: {gameManager.PersonalBest}";
-
+        attemptsText.text = $"{gameManager.AttemptsRemaining}/{gameManager.MaxAttempts}";
+        personalBestText.text = $"BEST {GameManager.FormatScore(gameManager.PersonalBest)}";
         clickButton.interactable = gameManager.IsRunActive;
+
+        int streak = gameManager.Streak;
+        streakText.gameObject.SetActive(streak >= 2);
+        streakText.text = $"x{streak} STREAK";
+
+        pips.SetRemaining(gameManager.AttemptsRemaining);
     }
 
     private void OnProbabilityChanged(float value)
     {
-        int probability = probabilityController.GetProbability(value);
-        probabilityText.text = $"Probability: {probability}%";
-        if (probability == 0)
-        {
-            rewardText.text = "Potential reward: --";
+        int probability = SelectedProbability;
+        probabilityText.text = $"{probability}%";
+        rewardText.text = $"+{GameManager.FormatScore(GameManager.RewardFor(probability))}";
+
+        OddsTier tier = palette.TierFor(probability);
+        if (tier == currentTier)
             return;
-        }
 
-        float reward = probabilityController.GetReward(probability);
+        bool firstSet = currentTier == null;
+        currentTier = tier;
 
-        rewardText.text = $"Potential reward: +{reward}";
+        Color color = palette.ForTier(tier);
+        float fade = firstSet ? 0f : 0.2f;
+        sliderFill.DOColor(color, fade);
+        rewardText.DOColor(color, fade);
+
+        if (firstSet)
+            return;
+        juice.Pop(rewardText.transform, 0.25f);
     }
 
     private void OnClickButton()
     {
-        int probability = probabilityController.GetProbability(probabilitySlider.value);
-
-        if (probability == 0)
+        if (Time.unscaledTime - lastClickTime < clickCooldown)
             return;
 
-        gameManager.TryAttempt(probability);
-    }
-
-    private void HandleAttemptResolved(bool success, float reward)
-    {
-        if (success)
-        {
-            resultText.text = $"LUCKY! +{reward}";
-            recentResults.Insert(0, $"SUCCESS +{reward}");
-        }
-        else
-        {
-            resultText.text = "UNLUCKY!";
-            recentResults.Insert(0, "FAILED");
-        }
-
-        recentResultsText.text = string.Join("\n", recentResults);
+        lastClickTime = Time.unscaledTime;
+        sfx.Click();
+        juice.Pop(clickButton.transform, 0.15f, 0.2f);
+        gameManager.TryAttempt(SelectedProbability);
     }
 
     private void HandleRunStarted()
     {
-        recentResults.Clear();
-
-        recentResultsText.text = "";
-        resultText.text = "GOOD LUCK!";
-        playAgainButton.gameObject.SetActive(false);
+        score.Set(0f);
+        pips.Refill(gameManager.MaxAttempts);
+        SetResult("GOOD LUCK", palette.Ink, 0.3f);
     }
 
-    private void HandleRunEnded()
+    private void HandleSuccess(float reward, int probability, int streak)
     {
-        resultText.text = "RUN COMPLETE!";
-        playAgainButton.gameObject.SetActive(true);
+        OddsTier tier = palette.TierFor(probability);
+        HitFeedback fx = tier switch
+        {
+            OddsTier.LongShot => longShotWin,
+            OddsTier.Risky => riskyWin,
+            _ => safeWin
+        };
+        Color accent = tier == OddsTier.Safe ? palette.Green : palette.Gold;
+        RectTransform scoreRect = score.Rect;
+        float risk = Risk(probability);
+
+        sfx.Win(risk, streak, tier == OddsTier.LongShot);
+        score.RollTo(gameManager.CurrentScore, Mathf.Lerp(0.3f, 0.8f, risk));
+        SetResult(fx.label, accent, fx.labelPop);
+
+        if (fx.hitStop > 0f)
+            juice.HitStop(fx.hitStop);
+        juice.Flash(palette.Green, fx.flashAlpha, fx.flashDuration);
+        juice.Shake(fx.shake, fx.shakeDuration);
+        juice.PostKick(bloomBoost: fx.bloom, chromaticAberration: fx.chromaticAberration,
+            lensDistortion: fx.lensDistortion, duration: fx.postDuration);
+        juice.Burst(scoreRect, fx.particles, new[] { accent, palette.Cream, palette.Green }, fx.particleSpeed);
+        juice.Pop(scoreRect, fx.scorePop);
+        juice.Popup(scoreRect, $"+{GameManager.FormatScore(reward)}", accent, fx.popupRise);
+
+        if (streak >= 2)
+            juice.Pop(streakText.transform, 0.5f);
     }
 
-    private void OnPlayAgainButton()
+    private void HandleBust(float lost, int probability)
     {
-        gameManager.StartNewRun();
+        bool lostSomething = lost > 0f;
+
+        sfx.Bust();
+        SetResult(lostSomething ? "BUST!" : "MISS", palette.Red, 0.4f);
+        juice.Flash(palette.Red, lostSomething ? 0.5f : 0.25f, 0.45f);
+        juice.Shake(lostSomething ? 10f : 4f, 0.3f);
+        juice.PostKick(chromaticAberration: lostSomething ? 1f : 0.4f, lensDistortion: 0.2f,
+            desaturate: lostSomething ? 70f : 30f, duration: 0.6f);
+
+        if (!lostSomething)
+            return;
+        juice.Popup(score.Rect, $"-{GameManager.FormatScore(lost)}", palette.Red, -36f);
+        score.PlayBust(palette.Red);
+    }
+
+    private void HandleRunEnded(float finalScore, bool isNewBest) => SetResult("RUN OVER", palette.Ink, 0.4f);
+
+    private void SetResult(string text, Color color, float pop)
+    {
+        resultText.text = text;
+        resultText.color = color;
+        juice.Pop(resultText.transform, pop);
     }
 }

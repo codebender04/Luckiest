@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80881cf5580a1d547bd9d11b3b6db32e, type: 3}
+  m_Name: Palette
+  m_EditorClassIdentifier: Assembly-CSharp::Palette
+  <Ink>k__BackingField: {r: 0.16862746, g: 0.14901961, b: 0.2, a: 1}
+  <Green>k__BackingField: {r: 0.24313726, g: 0.6392157, b: 0.3019608, a: 1}
+  <Gold>k__BackingField: {r: 0.9490196, g: 0.75686276, b: 0.30588236, a: 1}
+  <Red>k__BackingField: {r: 0.81960785, g: 0.28627452, b: 0.35686275, a: 1}
+  <Cream>k__BackingField: {r: 0.98039216, g: 0.9529412, b: 0.8784314, a: 1}
+  <Wiped>k__BackingField: {r: 0.5882353, g: 0.5647059, b: 0.6117647, a: 1}
+  <JackpotThreshold>k__BackingField: 10
+  <RiskyThreshold>k__BackingField: 50
