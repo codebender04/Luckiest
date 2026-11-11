@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: LootLockerConfig
   m_EditorClassIdentifier: lootlocker.lootlockersdk.runtime::LootLocker.LootLockerConfig
   apiKey: dev_772624bcc5a34019bdfa84454d71cb2e
-  adminToken: 8e0fb982e5e04d72c8f8586a44309d7367554c0086c36559c2e18aaec323cdb9
+  adminToken: 
   domainKey: gdk6o6rk
   game_version: 1.0.0.0
   sdk_version: 8.2.0
@@ -30,9 +30,9 @@ MonoBehaviour:
   multiUserSessionMode: 2
   enableEditorAdminExtension: 1
   url: https://api.lootlocker.com/v1
-  adminUrl: https://api.lootlocker.com/admin
-  playerUrl: https://api.lootlocker.com/player
-  userUrl: https://api.lootlocker.com/game
-  webSocketBaseUrl: wss://api.lootlocker.com/game
-  baseUrl: https://api.lootlocker.com
+  adminUrl: https://gdk6o6rk.api.lootlocker.com/admin
+  playerUrl: https://gdk6o6rk.api.lootlocker.com/player
+  userUrl: https://gdk6o6rk.api.lootlocker.com/game
+  webSocketBaseUrl: wss://gdk6o6rk.api.lootlocker.com/game
+  baseUrl: https://gdk6o6rk.api.lootlocker.com
   clientSideRequestTimeOut: 180
