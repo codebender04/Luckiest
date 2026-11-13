@@ -11,7 +11,7 @@ public class RuleHint : MonoBehaviour
     [SerializeField] private GameManager gameManager;
     [Tooltip("Optional. If set, its text is replaced with the message below.")]
     [SerializeField] private TMP_Text text;
-    [SerializeField] private string message = "LOWER CHANCE = MORE POINTS. MISS = LOSE IT ALL.";
+    [SerializeField] private string message = "LOWER CHANCE = MORE POINTS. MISS = LOSE IT ALL.\nHIGHER STREAK = HIGHER MULTIPLIER.";
     [SerializeField] private float showDelay = 0.6f;
     [Tooltip("The hint fades out after this many attempts.")]
     [SerializeField] private int hideAfterAttempts = 3;

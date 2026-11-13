@@ -7,11 +7,12 @@ using UnityEngine;
 
 /// <summary>
 /// LootLocker player leaderboard via the LootLocker SDK. Keys live in the SDK's config
-/// (Edit → Project Settings → LootLocker SDK). Scores are integers there, so they are sent ×100.
+/// (Edit → Project Settings → LootLocker SDK). Scores are integers there, so they are sent ×10.
 /// </summary>
 public class LootLockerLeaderboardService : LeaderboardService
 {
-    private const float ScoreScale = 100f;
+    // LootLocker scores are ints. ×10 keeps one decimal and still fits scores up to ~214 million.
+    private const float ScoreScale = 10f;
 
     [Tooltip("The leaderboard's Key from the LootLocker console.")]
     [SerializeField] private string leaderboardKey = "luckiest";
@@ -22,7 +23,7 @@ public class LootLockerLeaderboardService : LeaderboardService
     public override async Task SubmitScoreAsync(float score)
     {
         await EnsureSession();
-        int value = Mathf.RoundToInt(score * ScoreScale);
+        int value = (int)Math.Min(Math.Round((double)score * ScoreScale), int.MaxValue);
         await Request<LootLockerSubmitScoreResponse>(done =>
             LootLockerSDKManager.SubmitScore(playerId.ToString(), value, leaderboardKey, done));
     }

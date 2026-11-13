@@ -1049,6 +1049,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   maxAttempts: 10
   startRunOnLoad: 0
+  streakStrength: 1
 --- !u!4 &300607058
 Transform:
   m_ObjectHideFlags: 0
@@ -2042,7 +2043,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RuleHint
   gameManager: {fileID: 300607057}
   text: {fileID: 544805158}
-  message: LOWER CHANCE = MORE POINTS. MISS = LOSE IT ALL.
+  message: LOWER CHANCE = MORE POINTS. MISS = LOSE IT ALL.\nHIGHER STREAK = HIGHER
+    MULTIPLIER.
   showDelay: 0.6
   hideAfterAttempts: 3
 --- !u!225 &544805161

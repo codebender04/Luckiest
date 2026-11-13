@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 public class LeaderboardRow : MonoBehaviour
 {
-    [Tooltip("Shows the rank and name together, e.g. \"1. KHOA\".")]
+    [SerializeField] private TMP_Text rankText;
     [SerializeField] private TMP_Text nameText;
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private Image background;
@@ -13,7 +13,8 @@ public class LeaderboardRow : MonoBehaviour
 
     public void Set(LeaderboardEntry entry, bool highlight)
     {
-        nameText.text = $"{entry.Rank}. {entry.PlayerName}";
+        rankText.text = $"{entry.Rank}.";
+        nameText.text = $"{entry.PlayerName}";
         scoreText.text = GameManager.FormatScore(entry.Score);
         if (background != null)
             background.color = highlight ? highlightBackground : normalBackground;

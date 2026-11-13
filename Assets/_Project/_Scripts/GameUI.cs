@@ -118,16 +118,20 @@ public class GameUI : MonoBehaviour
 
         int streak = gameManager.Streak;
         streakText.gameObject.SetActive(streak >= 2);
-        streakText.text = $"x{streak} STREAK";
+        streakText.text = $"{streak} STREAK {GameManager.FormatMultiplier(gameManager.StreakMultiplier)}";
 
         pips.SetRemaining(gameManager.AttemptsRemaining);
+        UpdateRewardPreview();
     }
+
+    private void UpdateRewardPreview() =>
+        rewardText.text = $"+{GameManager.FormatScore(gameManager.GainFor(SelectedProbability))}";
 
     private void OnProbabilityChanged(float value)
     {
         int probability = SelectedProbability;
         probabilityText.text = $"{probability}%";
-        rewardText.text = $"+{GameManager.FormatScore(GameManager.RewardFor(probability))}";
+        UpdateRewardPreview();
 
         OddsTier tier = palette.TierFor(probability);
         if (tier == currentTier)
@@ -190,6 +194,10 @@ public class GameUI : MonoBehaviour
         juice.Burst(scoreRect, fx.particles, new[] { accent, palette.Cream, palette.Green }, fx.particleSpeed);
         juice.Pop(scoreRect, fx.scorePop);
         juice.Popup(scoreRect, $"+{GameManager.FormatScore(reward)}", accent, fx.popupRise);
+
+        float multiplier = gameManager.MultiplierFor(probability);
+        if (streak >= 2 && multiplier >= 1.5f)
+            juice.Popup(streakText.rectTransform, GameManager.FormatMultiplier(multiplier), palette.Gold, 30f);
 
         if (streak >= 2)
             juice.Pop(streakText.transform, 0.5f);
